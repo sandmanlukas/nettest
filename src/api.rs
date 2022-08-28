@@ -4,6 +4,8 @@ use terminal_spinners::{SpinnerBuilder, DOTS};
 use headless_chrome::Browser;
 use headless_chrome::LaunchOptionsBuilder;
 use headless_chrome::Element;
+use colored::Colorize;
+
 
 pub fn browser() -> Browser {
     Browser::new(
@@ -44,9 +46,15 @@ pub fn fetch_data(more: bool) -> Result<(), Box<dyn Error>> {
     let hundred_millis = Duration::from_millis(100);
     let handle = SpinnerBuilder::new().spinner(&DOTS).text("").start();
 
+    let mut counter = 0;
+
     loop {
 
-        // Add some sort of error check here, if the loop has passed x amounts of time, break.
+        counter = counter + 1;
+
+        if counter > 1000 {
+            panic!("Something went wrong, fetch_data() stuck in endless loop.");
+        }
 
         let down_speed_elem = match tab.find_element("#speed-value") {
             Ok(elem) => elem,
@@ -128,19 +136,19 @@ pub fn fetch_data(more: bool) -> Result<(), Box<dyn Error>> {
         let server_location = get_str_from_element(Ok(server_location_elem));
         let ip = get_str_from_element(Ok(ip_elem));
 
-
-
-        let terminal_str = format!(" {} {} ↓ / {} {} ↑", down_speed, down_unit, up_speed, up_unit);
-        handle.text(terminal_str);
-
         match (tab.find_element("#speed-value.succeeded"),tab.find_element("#upload-value.succeeded")) {
             (Ok(_down), Ok(_up)) =>  {
-                let closed = tab.close(true)?;
-                assert_eq!(closed, true);
+
+                let terminal_str = format!(" {} {} ↓ / {} {} ↑", down_speed.green(), down_unit.green(), up_speed.green(), up_unit.green()); 
+                handle.text(terminal_str);
 
                 handle.done();
 
+                let closed = tab.close(true)?;
+                assert_eq!(closed, true);
+
                 if more {
+                    println!("----- More information -----");
                     println!("Downloaded: {} MB", downloaded);
                     println!("Uploaded: {} MB", uploaded);
                     println!("Latency: {} {}", latency, latency_unit);
@@ -151,9 +159,18 @@ pub fn fetch_data(more: bool) -> Result<(), Box<dyn Error>> {
 
                 break
             },
+            (Ok(_down),_) => {
+                let terminal_str = format!(" {} {} ↓ / {} {} ↑", down_speed.green(), down_unit.green(), up_speed, up_unit);
+                handle.text(terminal_str)
 
-            _ => (),
+            }
+
+            _ => {
+                let terminal_str = format!(" {} {} ↓ / {} {} ↑", down_speed, down_unit, up_speed, up_unit);
+                handle.text(terminal_str);
+            },
         };
+
 
         sleep(hundred_millis);
 
@@ -161,5 +178,4 @@ pub fn fetch_data(more: bool) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-
 }
